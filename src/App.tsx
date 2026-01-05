@@ -413,13 +413,24 @@ function App() {
   const stats = [
     { icon: Award, number: '1', label: 'Years' },
     { icon: Code, number: '50+', label: 'Projects Completed' },
-    { icon: Users, number: '20+', label: 'Happy Clients' },
+    { icon: Users, number: '5+', label: 'Happy Clients' },
     { icon: Coffee, number: '1000+', label: 'Cups of Coffee' }
   ]
 
   const projects = [
     {
       id: 1,
+      title: 'Personal Portfolio',
+      description: 'A modern, responsive portfolio website built with React, TypeScript, and Tailwind CSS. Features smooth animations, dark/light mode, and interactive contact form.',
+      image: '/images/portfolio.png',
+      technologies: ['React', 'TypeScript', 'Tailwind CSS', 'Framer Motion', 'GSAP', 'EmailJS'],
+      liveUrl: 'https://farihahabibs-portfolio.netlify.app/',
+      githubUrl: 'https://github.com/Farihahabib/My-portfolio',
+      featured: true,
+      completedDate: '2024'
+    },
+    {
+      id: 2,
       title: 'ScholarStream',
       description: 'A comprehensive scholarship management platform built with modern web technologies, featuring user authentication, application tracking, and administrative tools.',
       image: '/images/scholarstream.png',
@@ -431,7 +442,7 @@ function App() {
       completedDate: '2024'
     },
     {
-      id: 2,
+      id: 3,
       title: 'ToyTopia',
       description: 'An interactive toy marketplace and showcase platform featuring product catalogs, user reviews, and modern e-commerce functionality with responsive design.',
       image: '/images/toytopia.png',
@@ -442,7 +453,7 @@ function App() {
       completedDate: '2024'
     },
     {
-      id: 3,
+      id: 4,
       title: 'Hero Apps',
       description: 'A modern web application built with contemporary technologies, featuring responsive design and interactive user interface elements.',
       image: '/images/herroapps.png',
@@ -453,7 +464,7 @@ function App() {
       completedDate: '2024'
     },
     {
-      id: 4,
+      id: 5,
       title: 'FoodLovers Network',
       description: 'A social food networking platform where food enthusiasts can share recipes, discover new cuisines, and connect with fellow food lovers.',
       image: '/images/foodlovers.png',
