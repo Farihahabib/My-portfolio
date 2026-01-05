@@ -1,9 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, Code, Database, Server, Globe, Award, Users, Coffee, Heart, ExternalLink, Github, Mail, Phone, MapPin, Send, Calendar, Star, CheckCircle, AlertCircle, Terminal, ArrowUp, Linkedin, Facebook } from 'lucide-react'
+import { Code, Database, Server, Globe, Award, Users, Coffee, Mail, Phone, MapPin, Terminal, Github, Linkedin, Facebook, MessageCircle } from 'lucide-react'
 import emailjs from '@emailjs/browser'
 import Navbar from '@/components/Navbar'
-import { motion } from 'framer-motion'
+import HeroSection from '@/components/sections/HeroSection'
+import AboutSection from '@/components/sections/AboutSection'
+import EducationSection from '@/components/sections/EducationSection'
+import SkillsSection from '@/components/sections/SkillsSection'
+import ProjectsSection from '@/components/sections/ProjectsSection'
+import ContactSection from '@/components/sections/ContactSection'
+import FooterSection from '@/components/sections/FooterSection'
+import ProjectModal from '@/components/sections/ProjectModal'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Lenis from '@studio-freight/lenis'
@@ -29,6 +35,8 @@ function App() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [selectedProject, setSelectedProject] = useState<any>(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
   
   // Typewriter effect states
   const [displayedText, setDisplayedText] = useState('')
@@ -39,10 +47,11 @@ function App() {
   const statsRef = useRef<HTMLDivElement>(null)
   const techSkillsRef = useRef<HTMLDivElement>(null)
 
-  // EmailJS configuration - Replace these with your actual EmailJS credentials
-  const EMAILJS_SERVICE_ID = 'service_portfolio' // Replace with your EmailJS service ID
-  const EMAILJS_TEMPLATE_ID = 'template_contact' // Replace with your EmailJS template ID  
-  const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY' // Replace with your EmailJS public key
+  // EmailJS configuration - Replace with your actual EmailJS credentials
+  // Get these from your EmailJS dashboard at https://www.emailjs.com/
+  const EMAILJS_SERVICE_ID = 'service_1ocinoy'
+  const EMAILJS_TEMPLATE_ID = 'template_vqxzbc7'
+  const EMAILJS_PUBLIC_KEY = '2PvJo1AWNxWEdzWFU'
 
   // Typewriter texts
   const typewriterTexts = [
@@ -272,6 +281,26 @@ function App() {
     }
   }
 
+  const handleResumeDownload = () => {
+    // Check if resume file exists, if not show a message
+    const resumeUrl = '/resume/Fariha_Habib_Resume.pdf'
+    
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a')
+    link.href = resumeUrl
+    link.download = 'Fariha_Habib_Resume.pdf'
+    link.target = '_blank'
+    
+    // Try to download, if file doesn't exist, show alert
+    link.onerror = () => {
+      alert('Resume is being prepared. Please check back soon!')
+    }
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const scrollToTop = () => {
     const lenis = window.lenis
     if (lenis) {
@@ -319,22 +348,59 @@ function App() {
     setSubmitStatus('idle')
 
     try {
-      // EmailJS template parameters
+      // Check if EmailJS is properly configured
+      if (EMAILJS_SERVICE_ID.includes('REPLACE_WITH_YOUR_') || 
+          EMAILJS_TEMPLATE_ID.includes('REPLACE_WITH_YOUR_') || 
+          EMAILJS_PUBLIC_KEY.includes('REPLACE_WITH_YOUR_')) {
+        
+        // Show setup message if not configured
+        alert('⚠️ EmailJS Setup Required!\n\n1. Go to https://www.emailjs.com/\n2. Create account with farihahabib2202@gmail.com\n3. Add Gmail service\n4. Create email template\n5. Replace the credentials in App.tsx')
+        setSubmitStatus('error')
+        return
+      }
+
+      // Validate form data
+      if (!formData.name || !formData.email || !formData.subject || !formData.message) {
+        alert('Please fill in all fields')
+        setSubmitStatus('error')
+        return
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(formData.email)) {
+        alert('Please enter a valid email address')
+        setSubmitStatus('error')
+        return
+      }
+
+      // EmailJS template parameters - these must match your template variables exactly
       const templateParams = {
         from_name: formData.name,
         from_email: formData.email,
         subject: formData.subject,
         message: formData.message,
+        to_name: 'Fariha Habib',
         to_email: 'farihahabib2202@gmail.com',
         reply_to: formData.email
       }
+
+      console.log('Sending email with params:', templateParams)
+      console.log('Using credentials:', {
+        serviceId: EMAILJS_SERVICE_ID,
+        templateId: EMAILJS_TEMPLATE_ID,
+        publicKey: EMAILJS_PUBLIC_KEY.substring(0, 5) + '...' // Only show first 5 chars for security
+      })
 
       // Send email using EmailJS
       const response = await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
-        templateParams
+        templateParams,
+        EMAILJS_PUBLIC_KEY // Pass public key as 4th parameter
       )
+
+      console.log('EmailJS Response:', response)
 
       if (response.status === 200) {
         setSubmitStatus('success')
@@ -344,20 +410,46 @@ function App() {
         setTimeout(() => {
           setSubmitStatus('idle')
         }, 5000)
+      } else {
+        throw new Error(`EmailJS returned status: ${response.status}`)
       }
-    } catch (error) {
-      console.error('EmailJS Error:', error)
+
+    } catch (error: any) {
+      console.error('EmailJS Error Details:', error)
+      
+      // More specific error messages
+      let errorMessage = 'Failed to send message. '
+      
+      if (error.text) {
+        console.error('EmailJS Error Text:', error.text)
+        if (error.text.includes('Invalid template ID')) {
+          errorMessage += 'Template ID is incorrect. '
+        } else if (error.text.includes('Invalid service ID')) {
+          errorMessage += 'Service ID is incorrect. '
+        } else if (error.text.includes('Invalid public key')) {
+          errorMessage += 'Public Key is incorrect. '
+        } else if (error.text.includes('Template not found')) {
+          errorMessage += 'Email template not found. '
+        } else {
+          errorMessage += `Error: ${error.text} `
+        }
+      }
+      
+      errorMessage += 'Please check the console for details or contact me directly at farihahabib2202@gmail.com'
+      
+      // Show detailed error in console for debugging
+      alert(`Debug Info:\nService ID: ${EMAILJS_SERVICE_ID}\nTemplate ID: ${EMAILJS_TEMPLATE_ID}\nPublic Key: ${EMAILJS_PUBLIC_KEY.substring(0, 5)}...\n\nError: ${error.text || error.message}`)
+      
       setSubmitStatus('error')
       
-      // Reset error message after 5 seconds
+      // Reset error message after 8 seconds (longer for debugging)
       setTimeout(() => {
         setSubmitStatus('idle')
-      }, 5000)
+      }, 8000)
     } finally {
       setIsSubmitting(false)
     }
   }
-
   const techStack = [
     'HTML5', 'CSS', 'Javascript', 'Node.js', 'React', 'MongoDB', 'Git', 'Github'
   ]
@@ -427,7 +519,20 @@ function App() {
       liveUrl: 'https://farihahabibs-portfolio.netlify.app/',
       githubUrl: 'https://github.com/Farihahabib/My-portfolio',
       featured: true,
-      completedDate: '2024'
+      completedDate: '2025',
+      challenges: [
+        'Implementing smooth scroll animations with Lenis and GSAP integration',
+        'Creating responsive design that works across all device sizes',
+        'Optimizing performance while maintaining rich animations',
+        'Setting up EmailJS for contact form functionality'
+      ],
+      improvements: [
+        'Add blog section with markdown support',
+        'Implement project filtering and search functionality',
+        'Add more interactive animations and micro-interactions',
+        'Create admin panel for easy content management'
+      ],
+      detailedDescription: 'This portfolio represents my journey as a MERN stack developer. Built with modern React and TypeScript, it showcases my skills in creating responsive, animated web applications. The site features smooth scrolling, dark/light mode toggle, and a fully functional contact form integrated with EmailJS.'
     },
     {
       id: 2,
@@ -439,7 +544,20 @@ function App() {
       githubUrl: 'https://github.com/Farihahabib/SCHOLARSTREAM',
       backendUrl: 'https://github.com/Farihahabib/SCHOLARSTREAMBACKEND',
       featured: true,
-      completedDate: '2024'
+      completedDate: '2025',
+      challenges: [
+        'Implementing secure user authentication with Firebase Auth',
+        'Creating a complex application tracking system',
+        'Managing real-time data synchronization across multiple users',
+        'Designing an intuitive admin dashboard for scholarship management'
+      ],
+      improvements: [
+        'Add advanced search and filtering options',
+        'Implement notification system for application updates',
+        'Create mobile app version using React Native',
+        'Add document upload and verification system'
+      ],
+      detailedDescription: 'ScholarStream is a full-stack scholarship management platform that connects students with scholarship opportunities. The platform features user authentication, application tracking, and administrative tools for managing scholarships. Built with React and Firebase, it provides real-time updates and secure data management.'
     },
     {
       id: 3,
@@ -450,7 +568,20 @@ function App() {
       liveUrl: 'https://toytopia2.netlify.app/',
       githubUrl: 'https://github.com/Farihahabib/TOYTOPIA',
       featured: true,
-      completedDate: '2024'
+      completedDate: '2025',
+      challenges: [
+        'Creating an engaging product showcase with smooth animations',
+        'Implementing responsive grid layouts for different screen sizes',
+        'Managing product data and user interactions efficiently',
+        'Optimizing images and performance for fast loading'
+      ],
+      improvements: [
+        'Add shopping cart and checkout functionality',
+        'Implement user reviews and rating system',
+        'Create wishlist and favorites features',
+        'Add product comparison functionality'
+      ],
+      detailedDescription: 'ToyTopia is an interactive toy marketplace that showcases various toy products with modern web design. The platform features responsive design, product catalogs, and user-friendly navigation. Built with React and modern CSS, it provides an engaging shopping experience for toy enthusiasts.'
     },
     {
       id: 4,
@@ -461,7 +592,20 @@ function App() {
       liveUrl: 'https://tangerine-tulumba-8846cf.netlify.app/',
       githubUrl: 'https://github.com/Farihahabib/Hero-Apps',
       featured: false,
-      completedDate: '2024'
+      completedDate: '2025',
+      challenges: [
+        'Creating superhero-themed interactive components',
+        'Implementing dynamic content rendering',
+        'Ensuring cross-browser compatibility',
+        'Optimizing for mobile-first responsive design'
+      ],
+      improvements: [
+        'Add character database with search functionality',
+        'Implement user profiles and favorites',
+        'Create interactive games and quizzes',
+        'Add social sharing features'
+      ],
+      detailedDescription: 'Hero Apps is a superhero-themed web application that demonstrates modern React development practices. The application features interactive UI elements, responsive design, and engaging user experiences. Built with focus on clean code and user-friendly interfaces.'
     },
     {
       id: 5,
@@ -473,7 +617,20 @@ function App() {
       githubUrl: 'https://github.com/Farihahabib/Client',
       backendUrl: 'https://github.com/Farihahabib/Server',
       featured: false,
-      completedDate: '2024'
+      completedDate: '2025',
+      challenges: [
+        'Building a social networking platform with user interactions',
+        'Implementing recipe sharing and discovery features',
+        'Creating responsive design for food photography display',
+        'Managing user-generated content and moderation'
+      ],
+      improvements: [
+        'Add real-time chat functionality between users',
+        'Implement advanced recipe recommendation algorithm',
+        'Create cooking video upload and streaming features',
+        'Add restaurant integration and reviews'
+      ],
+      detailedDescription: 'FoodLovers Network is a social platform designed for food enthusiasts to share recipes, discover new cuisines, and connect with like-minded individuals. The platform features recipe sharing, user profiles, and social networking capabilities, all built with modern web technologies.'
     }
   ]
 
@@ -489,6 +646,12 @@ function App() {
       label: 'Phone',
       value: '+880 1737463922',
       link: 'tel:+8801737463922'
+    },
+    {
+      icon: MessageCircle,
+      label: 'WhatsApp',
+      value: '+880 1737463922',
+      link: 'https://wa.me/8801737463922'
     },
     {
       icon: MapPin,
@@ -528,9 +691,35 @@ function App() {
   const quickLinks = [
     { label: 'Home', href: '#home' },
     { label: 'About', href: '#about' },
+    { label: 'Education', href: '#education' },
     { label: 'Skills', href: '#skills' },
     { label: 'Projects', href: '#projects' },
     { label: 'Contact', href: '#contact' }
+  ]
+
+  const education = [
+    {
+      id: 1,
+      degree: 'Bachelor of Science (BSc)',
+      institution: 'University Name',
+      location: 'Dhaka, Bangladesh',
+      duration: '2022 - Present',
+      status: 'Currently Pursuing',
+      description: 'Pursuing Bachelor of Science degree with focus on Computer Science and Mathematics. This academic foundation complements my practical development experience and enhances my problem-solving abilities.',
+      subjects: ['Computer Science', 'Mathematics', 'Physics', 'Statistics'],
+      gpa: 'Expected: 3.5+/4.0'
+    },
+    {
+      id: 2,
+      degree: 'Higher Secondary Certificate (HSC)',
+      institution: 'College Name',
+      location: 'Dhaka, Bangladesh',
+      duration: '2020 - 2022',
+      status: 'Completed',
+      description: 'Completed Higher Secondary Certificate in Science Group with excellent results. Built strong foundation in mathematics and science that supports my programming and problem-solving skills.',
+      subjects: ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
+      gpa: '4.5/5.0'
+    }
   ]
 
   return (
@@ -541,2891 +730,68 @@ function App() {
         toggleTheme={toggleTheme} 
         scrollToSection={scrollToSection} 
       />
-
       {/* Hero Section */}
-      <section id="home" className="flex-grow pt-24 px-4 flex flex-col items-center justify-center relative overflow-hidden bg-white dark:bg-slate-900">
-        {/* Animated Background Elements */}
-        <motion.div 
-          className="absolute inset-0 pointer-events-none"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 2 }}
-        >
-          {/* Floating Geometric Shapes */}
-          <motion.div
-            className="absolute top-1/4 left-1/4 w-20 h-20 border-2 border-purple-300/30 dark:border-purple-500/30 rounded-full"
-            animate={{
-              y: [0, -20, 0],
-              rotate: [0, 180, 360],
-              scale: [1, 1.1, 1]
-            }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute top-3/4 right-1/4 w-16 h-16 bg-gradient-to-br from-pink-400/20 to-purple-600/20 rounded-lg"
-            animate={{
-              y: [0, 15, 0],
-              rotate: [0, -180, -360],
-              x: [0, 10, 0]
-            }}
-            transition={{
-              duration: 10,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 1
-            }}
-          />
-          <motion.div
-            className="absolute top-1/2 right-1/6 w-12 h-12 border border-indigo-400/40 dark:border-indigo-300/40"
-            animate={{
-              rotate: [0, 90, 180, 270, 360],
-              scale: [1, 1.2, 1, 0.8, 1]
-            }}
-            transition={{
-              duration: 12,
-              repeat: Infinity,
-              ease: "linear"
-            }}
-          />
-          
-          {/* Floating Particles */}
-          {[...Array(6)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-purple-400/60 dark:bg-purple-300/60 rounded-full"
-              style={{
-                left: `${20 + i * 15}%`,
-                top: `${30 + i * 10}%`
-              }}
-              animate={{
-                y: [0, -30, 0],
-                opacity: [0.3, 1, 0.3],
-                scale: [0.5, 1, 0.5]
-              }}
-              transition={{
-                duration: 4 + i,
-                repeat: Infinity,
-                delay: i * 0.5,
-                ease: "easeInOut"
-              }}
-            />
-          ))}
-        </motion.div>
-
-        {/* Decorative Elements */}
-        <motion.div 
-          className="absolute top-1/4 left-4 opacity-20 text-purple-600 dark:text-purple-400 pointer-events-none transform -translate-x-1/2"
-          initial={{ x: -100, opacity: 0, rotate: -180 }}
-          animate={{ 
-            x: 0, 
-            opacity: 0.2, 
-            rotate: 0,
-            transition: { 
-              duration: 1.5, 
-              ease: "backOut",
-              delay: 0.5 
-            }
-          }}
-          whileInView={{
-            rotate: [0, 10, -10, 0],
-            transition: { 
-              duration: 4, 
-              repeat: Infinity,
-              ease: "easeInOut"
-            }
-          }}
-        >
-          <ChevronLeft className="w-15 h-25" strokeWidth={2} />
-        </motion.div>
-        
-        <motion.div 
-          className="absolute bottom-1/4 right-4 opacity-20 text-purple-600 dark:text-purple-400 pointer-events-none transform translate-x-1/2"
-          initial={{ x: 100, opacity: 0, rotate: 180 }}
-          animate={{ 
-            x: 0, 
-            opacity: 0.2, 
-            rotate: 0,
-            transition: { 
-              duration: 1.5, 
-              ease: "backOut",
-              delay: 0.7 
-            }
-          }}
-          whileInView={{
-            rotate: [0, -10, 10, 0],
-            transition: { 
-              duration: 4, 
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 2
-            }
-          }}
-        >
-          <ChevronRight className="w-15 h-25" strokeWidth={2} />
-        </motion.div>
-
-        <div className="w-full max-w-6xl flex flex-col-reverse md:flex-row items-center justify-between gap-12 py-8 md:py-20 relative z-10">
-          {/* Text Content */}
-          <motion.div 
-            className="w-full md:w-1/2 flex flex-col items-start space-y-6 text-center md:text-left"
-            initial={{ opacity: 0, x: -100 }}
-            animate={{ 
-              opacity: 1, 
-              x: 0,
-              transition: { 
-                duration: 1.2, 
-                ease: "easeOut",
-                delay: 0.3
-              }
-            }}
-          >
-            <div className="space-y-2 w-full">
-              <motion.h2 
-                className="text-3xl font-bold flex items-center justify-center md:justify-start gap-1 text-zinc-900 dark:text-white"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.8, 
-                    delay: 0.5,
-                    type: "spring",
-                    stiffness: 200
-                  }
-                }}
-              >
-                Hello
-                <motion.span 
-                  className="text-purple-600 dark:text-purple-400 text-4xl leading-none"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    rotate: [0, 10, -10, 0]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    repeatDelay: 3,
-                    ease: "easeInOut"
-                  }}
-                >
-                  .
-                </motion.span>
-              </motion.h2>
-              
-              <div className="flex items-center justify-center md:justify-start gap-4">
-                <motion.div 
-                  className="h-0.5 w-12 bg-purple-600 dark:bg-purple-400 hidden sm:block"
-                  initial={{ width: 0 }}
-                  animate={{ 
-                    width: 48,
-                    transition: { 
-                      duration: 1, 
-                      delay: 0.8,
-                      ease: "easeOut"
-                    }
-                  }}
-                />
-                <motion.h1 
-                  className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-zinc-900 dark:text-white"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1,
-                    transition: { 
-                      duration: 1, 
-                      delay: 0.7,
-                      type: "spring",
-                      stiffness: 150
-                    }
-                  }}
-                  whileHover={{
-                    scale: 1.05,
-                    transition: { duration: 0.3 }
-                  }}
-                >
-                  I'm Fariha
-                </motion.h1>
-              </div>
-              
-              <motion.p 
-                className="text-xl sm:text-2xl md:text-3xl font-semibold text-zinc-600 dark:text-zinc-400 mt-2 min-h-[2.5rem] flex items-center justify-center md:justify-start"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.8, 
-                    delay: 0.9
-                  }
-                }}
-              >
-                <span className="bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent">
-                  {displayedText}
-                  <span className="inline-block w-0.5 h-6 bg-purple-600 dark:bg-purple-400 ml-1 animate-pulse" />
-                </span>
-              </motion.p>
-            </div>
-            
-            <motion.p 
-              className="text-base text-zinc-600 dark:text-zinc-400 max-w-md mx-auto md:mx-0 leading-relaxed"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.8, 
-                  delay: 1.1
-                }
-              }}
-            >
-              Passionate about building scalable web applications and crafting intuitive user experiences using MongoDB, Express, React, and Node.js.
-            </motion.p>
-            
-            {/* Social Links */}
-            <motion.div 
-              className="flex justify-center md:justify-start gap-4 py-4"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.8, 
-                  delay: 1.2
-                }
-              }}
-            >
-              {socialLinks.map((social, index) => (
-                <motion.a
-                  key={index}
-                  href={social.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`w-10 h-10 bg-white dark:bg-slate-800 border border-purple-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 transition-all duration-300 ${social.color} hover:border-purple-400 dark:hover:border-purple-500 shadow-sm hover:shadow-md group relative overflow-hidden`}
-                  initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1, 
-                    rotate: 0,
-                    transition: { 
-                      delay: index * 0.1 + 1.3,
-                      type: "spring",
-                      stiffness: 200,
-                      damping: 20
-                    }
-                  }}
-                  whileHover={{ 
-                    scale: 1.15,
-                    y: -3,
-                    transition: { 
-                      type: "spring", 
-                      stiffness: 400, 
-                      damping: 25 
-                    }
-                  }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {/* Animated background */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-indigo-500/10 rounded-full opacity-0 group-hover:opacity-100"
-                    initial={{ scale: 0, rotate: 180 }}
-                    whileHover={{ 
-                      scale: 1, 
-                      rotate: 0,
-                      transition: { duration: 0.3 }
-                    }}
-                  />
-                  
-                  <motion.div
-                    whileHover={{ 
-                      rotate: 360,
-                      transition: { duration: 0.6 }
-                    }}
-                    className="relative z-10"
-                  >
-                    <social.icon className="w-5 h-5" />
-                  </motion.div>
-                  
-                  {/* Tooltip */}
-                  <motion.div
-                    className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-slate-800 dark:bg-slate-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap"
-                    initial={{ y: 10, opacity: 0 }}
-                    whileHover={{ y: 0, opacity: 1 }}
-                  >
-                    {social.label}
-                  </motion.div>
-                  
-                  {/* Ripple effect */}
-                  <motion.div
-                    className="absolute inset-0 bg-purple-400/20 rounded-full"
-                    initial={{ scale: 0, opacity: 0 }}
-                    whileTap={{ 
-                      scale: [0, 1.5, 0], 
-                      opacity: [0, 0.3, 0],
-                      transition: { duration: 0.4 }
-                    }}
-                  />
-                </motion.a>
-              ))}
-            </motion.div>
-            
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.8, 
-                  delay: 1.5
-                }
-              }}
-            >
-              <motion.div
-                whileHover={{ 
-                  scale: 1.05,
-                  y: -2,
-                  transition: { type: "spring", stiffness: 400, damping: 25 }
-                }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button 
-                  onClick={() => scrollToSection('contact')}
-                  className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-medium px-8 py-3 shadow-lg shadow-pink-500/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden group"
-                >
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-rose-600 to-pink-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    initial={{ x: "-100%" }}
-                    whileHover={{ x: "0%" }}
-                    transition={{ duration: 0.3 }}
-                  />
-                  <span className="relative z-10">Got a project?</span>
-                </Button>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ 
-                  scale: 1.05,
-                  y: -2,
-                  transition: { type: "spring", stiffness: 400, damping: 25 }
-                }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button 
-                  variant="outline" 
-                  className="border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white dark:border-purple-400 dark:text-purple-400 dark:hover:bg-purple-400 dark:hover:text-black font-medium px-8 py-3 transition-all relative overflow-hidden group"
-                >
-                  <motion.div
-                    className="absolute inset-0 bg-purple-600 dark:bg-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    initial={{ scale: 0 }}
-                    whileHover={{ scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                  />
-                  <span className="relative z-10">My resume</span>
-                </Button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-
-          {/* Profile Image */}
-          <motion.div 
-            className="w-full md:w-1/2 flex justify-center relative"
-            initial={{ opacity: 0, x: 100, scale: 0.8 }}
-            animate={{ 
-              opacity: 1, 
-              x: 0, 
-              scale: 1,
-              transition: { 
-                duration: 1.2, 
-                ease: "easeOut",
-                delay: 0.5
-              }
-            }}
-          >
-            <div className="relative w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96">
-              {/* Animated Rings */}
-              <motion.div 
-                className="absolute inset-0 rounded-full border-2 border-purple-600/20 dark:border-purple-400/30"
-                animate={{
-                  rotate: [0, 360],
-                  scale: [1, 1.05, 1]
-                }}
-                transition={{
-                  duration: 20,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-              />
-              <motion.div 
-                className="absolute inset-2 rounded-full border border-pink-500/20 dark:border-pink-400/30"
-                animate={{
-                  rotate: [360, 0],
-                  scale: [1, 0.95, 1]
-                }}
-                transition={{
-                  duration: 15,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-              />
-              
-              {/* Gradient Background */}
-              <motion.div 
-                className="absolute inset-4 rounded-full bg-gradient-to-br from-purple-600/20 via-purple-600/5 to-transparent dark:from-purple-400/30 dark:via-purple-400/10 dark:to-transparent"
-                animate={{
-                  rotate: [0, 180, 360],
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{
-                  duration: 25,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-              
-              {/* Profile Image */}
-              <motion.img 
-                alt="Fariha Habib - MERN Stack Developer" 
-                className="absolute inset-2 w-[95%] h-[95%] object-cover rounded-full shadow-2xl border-4 border-white dark:border-black z-10" 
-                src="https://i.ibb.co/DFYYsgH/profile.jpg"
-                whileHover={{
-                  scale: 1.05,
-                  rotate: [0, 2, -2, 0],
-                  transition: { 
-                    duration: 0.6,
-                    type: "spring",
-                    stiffness: 300
-                  }
-                }}
-                animate={{
-                  y: [0, -10, 0],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-              
-              {/* Floating Elements Around Image */}
-              <motion.div 
-                className="absolute -top-4 -right-4 w-24 h-24 border border-zinc-300 dark:border-zinc-700 rounded-full opacity-50"
-                animate={{
-                  rotate: [0, 360],
-                  scale: [1, 1.1, 1],
-                  opacity: [0.3, 0.7, 0.3]
-                }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-              
-              {/* Code Symbols Floating Around */}
-              <motion.div
-                className="absolute -top-8 left-1/4 text-purple-500 dark:text-purple-400 opacity-60"
-                animate={{
-                  y: [0, -15, 0],
-                  rotate: [0, 180, 360],
-                  opacity: [0.4, 0.8, 0.4]
-                }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              >
-                <Code className="w-6 h-6" />
-              </motion.div>
-              
-              <motion.div
-                className="absolute -bottom-6 -left-6 text-pink-500 dark:text-pink-400 opacity-60"
-                animate={{
-                  y: [0, 12, 0],
-                  x: [0, 8, 0],
-                  rotate: [0, -180, -360],
-                  opacity: [0.4, 0.8, 0.4]
-                }}
-                transition={{
-                  duration: 7,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 1
-                }}
-              >
-                <Database className="w-6 h-6" />
-              </motion.div>
-              
-              <motion.div
-                className="absolute top-1/2 -right-8 text-indigo-500 dark:text-indigo-400 opacity-60"
-                animate={{
-                  x: [0, 15, 0],
-                  rotate: [0, 90, 180, 270, 360],
-                  opacity: [0.4, 0.8, 0.4]
-                }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 2
-                }}
-              >
-                <Server className="w-6 h-6" />
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <HeroSection 
+        displayedText={displayedText}
+        handleResumeDownload={handleResumeDownload}
+        scrollToSection={scrollToSection}
+        socialLinks={socialLinks}
+      />
 
       {/* About Section */}
-      <section ref={aboutRef} id="about" className="py-20 px-4 bg-slate-50 dark:bg-slate-800 overflow-hidden">
-        <div className="max-w-6xl mx-auto">
-          {/* Section Header */}
-          <motion.div 
-            className="text-center mb-16 animate-on-scroll"
-            initial={{ opacity: 0, y: 60 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                duration: 0.8,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            <motion.h2 
-              className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-slate-100 mb-4"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ 
-                opacity: 1, 
-                scale: 1,
-                transition: { 
-                  duration: 0.6,
-                  ease: "backOut",
-                  delay: 0.2
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              About Me
-            </motion.h2>
-            <motion.div 
-              className="w-20 h-1 bg-purple-600 dark:bg-purple-400 mx-auto mb-6"
-              initial={{ width: 0 }}
-              whileInView={{ 
-                width: 80,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut",
-                  delay: 0.4
-                }
-              }}
-              viewport={{ once: true }}
-            />
-            <motion.p 
-              className="text-lg text-zinc-600 dark:text-zinc-400 max-w-3xl mx-auto"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.6,
-                  delay: 0.6
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              I'm a passionate MERN stack developer with a love for creating beautiful, functional, and user-friendly web applications.
-            </motion.p>
-          </motion.div>
+      <AboutSection 
+        aboutRef={aboutRef}
+        statsRef={statsRef}
+        stats={stats}
+        skills={skills}
+      />
 
-          <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
-            {/* About Text */}
-            <motion.div 
-              className="space-y-6 animate-on-scroll"
-              initial={{ opacity: 0, x: -60 }}
-              whileInView={{ 
-                opacity: 1, 
-                x: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut"
-                }
-              }}
-              viewport={{ once: true, margin: "-50px" }}
-            >
-              <motion.h3 
-                className="text-2xl font-bold text-zinc-900 dark:text-slate-100"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.2
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                My Journey in Web Development
-              </motion.h3>
-              
-              <motion.p 
-                className="text-slate-600 dark:text-slate-400 leading-relaxed"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.3
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                With over 1 years of experience in web development, I specialize in the MERN stack (MongoDB, Express.js, React, Node.js). 
-                My journey began with a curiosity about how websites work, and it has evolved into a passion for creating digital experiences 
-                that make a difference.
-              </motion.p>
-              
-              <motion.p 
-                className="text-slate-600 dark:text-slate-400 leading-relaxed"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.4
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                I believe in writing clean, maintainable code and staying up-to-date with the latest technologies and best practices. 
-                When I'm not coding, you can find me exploring new frameworks, contributing to open-source projects, or mentoring 
-                aspiring developers.
-              </motion.p>
-              
-              <motion.div 
-                className="flex items-center gap-2 text-purple-600 dark:text-purple-400"
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  scale: 1,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.5,
-                    type: "spring",
-                    stiffness: 200
-                  }
-                }}
-                whileHover={{ 
-                  scale: 1.05,
-                  transition: { duration: 0.2 }
-                }}
-                viewport={{ once: true }}
-              >
-                <motion.div
-                  animate={{ 
-                    scale: [1, 1.2, 1],
-                    rotate: [0, 10, -10, 0]
-                  }}
-                  transition={{ 
-                    duration: 2,
-                    repeat: Infinity,
-                    repeatDelay: 3
-                  }}
-                >
-                  <Heart className="w-5 h-5" />
-                </motion.div>
-                <span className="font-medium">Passionate about creating amazing user experiences</span>
-              </motion.div>
-            </motion.div>
-
-            {/* Stats Grid */}
-            <motion.div 
-              ref={statsRef} 
-              className="grid grid-cols-2 gap-6 animate-on-scroll"
-              initial={{ opacity: 0, x: 60 }}
-              whileInView={{ 
-                opacity: 1, 
-                x: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut"
-                }
-              }}
-              viewport={{ once: true, margin: "-50px" }}
-            >
-              {stats.map((stat, index) => (
-                <motion.div 
-                  key={index} 
-                  className="bg-white dark:bg-slate-700 p-6 rounded-xl shadow-lg text-center hover:shadow-xl transition-all duration-300 group cursor-pointer"
-                  initial={{ opacity: 0, y: 50, scale: 0.8 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0, 
-                    scale: 1,
-                    transition: { 
-                      duration: 0.6,
-                      delay: index * 0.1 + 0.2,
-                      type: "spring",
-                      stiffness: 200,
-                      damping: 20
-                    }
-                  }}
-                  whileHover={{ 
-                    scale: 1.05,
-                    y: -8,
-                    rotateY: 5,
-                    transition: { 
-                      type: "spring", 
-                      stiffness: 300, 
-                      damping: 20 
-                    }
-                  }}
-                  whileTap={{ 
-                    scale: 0.98,
-                    transition: { duration: 0.1 }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <motion.div
-                    whileHover={{ 
-                      rotate: [0, -10, 10, 0],
-                      scale: 1.2,
-                      transition: { duration: 0.5 }
-                    }}
-                    className="mb-3"
-                  >
-                    <stat.icon className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto group-hover:text-pink-500 transition-colors duration-300" />
-                  </motion.div>
-                  
-                  <motion.div 
-                    className="text-3xl font-bold text-zinc-900 dark:text-slate-100 mb-1 stat-number"
-                    initial={{ scale: 0 }}
-                    whileInView={{ 
-                      scale: 1,
-                      transition: { 
-                        type: "spring",
-                        stiffness: 200,
-                        delay: index * 0.1 + 0.5
-                      }
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    {stat.number}
-                  </motion.div>
-                  
-                  <motion.div 
-                    className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ 
-                      opacity: 1,
-                      transition: { 
-                        delay: index * 0.1 + 0.7
-                      }
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    {stat.label}
-                  </motion.div>
-                  
-                  {/* Animated background gradient */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-indigo-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    initial={{ scale: 0 }}
-                    whileHover={{ 
-                      scale: 1,
-                      transition: { duration: 0.3 }
-                    }}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Skills Section */}
-          <motion.div 
-            className="animate-on-scroll"
-            initial={{ opacity: 0, y: 60 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                duration: 0.8,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            <motion.h3 
-              className="text-3xl font-bold text-zinc-900 dark:text-slate-100 text-center mb-12"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ 
-                opacity: 1, 
-                scale: 1,
-                transition: { 
-                  duration: 0.6,
-                  type: "spring",
-                  stiffness: 200
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              What I Do
-            </motion.h3>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {skills.map((skill, index) => (
-                <motion.div 
-                  key={index} 
-                  className="bg-white dark:bg-slate-700 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group relative overflow-hidden"
-                  initial={{ opacity: 0, y: 50, rotateX: -15 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    rotateX: 0,
-                    transition: { 
-                      delay: index * 0.1,
-                      duration: 0.6,
-                      ease: "easeOut"
-                    }
-                  }}
-                  whileHover={{ 
-                    scale: 1.05,
-                    y: -15,
-                    rotateY: 5,
-                    transition: { 
-                      type: "spring", 
-                      stiffness: 400, 
-                      damping: 25 
-                    }
-                  }}
-                  viewport={{ once: true, margin: "-50px" }}
-                >
-                  {/* Animated background */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100"
-                    initial={{ scale: 0, rotate: 180 }}
-                    whileHover={{ 
-                      scale: 1, 
-                      rotate: 0,
-                      transition: { duration: 0.4 }
-                    }}
-                  />
-                  
-                  <motion.div
-                    className="relative z-10"
-                    whileHover={{ 
-                      rotate: [0, -5, 5, 0],
-                      scale: 1.1,
-                      transition: { duration: 0.5 }
-                    }}
-                  >
-                    <skill.icon className="w-12 h-12 text-purple-600 dark:text-purple-400 mb-4 group-hover:text-pink-500 transition-colors duration-300" />
-                  </motion.div>
-                  
-                  <motion.h4 
-                    className="text-xl font-semibold text-zinc-900 dark:text-slate-100 mb-3 relative z-10"
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ 
-                      opacity: 1, 
-                      x: 0,
-                      transition: { 
-                        delay: index * 0.1 + 0.2,
-                        duration: 0.4
-                      }
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    {skill.name}
-                  </motion.h4>
-                  
-                  <motion.p 
-                    className="text-slate-600 dark:text-slate-400 text-sm relative z-10"
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ 
-                      opacity: 1, 
-                      x: 0,
-                      transition: { 
-                        delay: index * 0.1 + 0.3,
-                        duration: 0.4
-                      }
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    {skill.description}
-                  </motion.p>
-                  
-                  {/* Floating particles effect */}
-                  <motion.div
-                    className="absolute top-2 right-2 w-2 h-2 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100"
-                    animate={{
-                      y: [0, -10, 0],
-                      opacity: [0.5, 1, 0.5]
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      delay: index * 0.2
-                    }}
-                  />
-                  <motion.div
-                    className="absolute bottom-4 left-4 w-1 h-1 bg-pink-400 rounded-full opacity-0 group-hover:opacity-100"
-                    animate={{
-                      y: [0, -8, 0],
-                      x: [0, 5, 0],
-                      opacity: [0.3, 0.8, 0.3]
-                    }}
-                    transition={{
-                      duration: 2.5,
-                      repeat: Infinity,
-                      delay: index * 0.3
-                    }}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      {/* Education Section */}
+      <EducationSection 
+        education={education}
+      />
 
       {/* Skills Section */}
-      <section ref={skillsRef} id="skills" className="py-20 px-4 bg-white dark:bg-slate-900">
-        <div className="max-w-6xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center mb-16 skill-animate">
-            <h2 className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-slate-100 mb-4">
-              Skills & Expertise
-            </h2>
-            <div className="w-20 h-1 bg-purple-600 dark:bg-purple-400 mx-auto mb-6"></div>
-            <p className="text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-              Here are the technologies and tools I work with to bring ideas to life.
-            </p>
-          </div>
-
-          {/* Technical Skills Grid */}
-          <div ref={techSkillsRef} className="grid md:grid-cols-2 gap-8 mb-16">
-            {technicalSkills.map((category, categoryIndex) => (
-              <motion.div 
-                key={categoryIndex} 
-                className="bg-slate-50 dark:bg-slate-800 p-8 rounded-2xl shadow-lg skill-animate"
-                whileHover={{ 
-                  scale: 1.02,
-                  y: -5,
-                  transition: { type: "spring", stiffness: 300, damping: 25 }
-                }}
-                initial={{ opacity: 0, y: 50, rotateX: -15 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0, 
-                  rotateX: 0,
-                  transition: { 
-                    delay: categoryIndex * 0.2,
-                    duration: 0.8,
-                    ease: "easeOut"
-                  }
-                }}
-                viewport={{ once: true, margin: "-50px" }}
-              >
-                <div className="flex items-center gap-3 mb-6">
-                  <motion.div 
-                    className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center"
-                    whileHover={{ 
-                      rotate: 360,
-                      scale: 1.1,
-                      transition: { duration: 0.6, ease: "easeInOut" }
-                    }}
-                  >
-                    <category.icon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </motion.div>
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-slate-100">
-                    {category.category}
-                  </h3>
-                </div>
-                
-                <div className="space-y-4">
-                  {category.skills.map((skill, skillIndex) => (
-                    <motion.div 
-                      key={skillIndex} 
-                      className="space-y-2"
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        x: 0,
-                        transition: { 
-                          delay: (categoryIndex * 0.2) + (skillIndex * 0.1),
-                          duration: 0.5
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                          {skill.name}
-                        </span>
-                        <motion.span 
-                          className="text-sm font-bold text-slate-600 dark:text-slate-400"
-                          initial={{ opacity: 0 }}
-                          whileInView={{ 
-                            opacity: 1,
-                            transition: { delay: (categoryIndex * 0.2) + (skillIndex * 0.1) + 0.3 }
-                          }}
-                        >
-                          {skill.level}%
-                        </motion.span>
-                      </div>
-                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
-                        <motion.div 
-                          className={`h-2 rounded-full ${skill.color} progress-bar`}
-                          data-width={`${skill.level}%`}
-                          initial={{ width: '0%' }}
-                          whileInView={{ 
-                            width: `${skill.level}%`,
-                            transition: { 
-                              delay: (categoryIndex * 0.2) + (skillIndex * 0.1) + 0.5,
-                              duration: 1.2,
-                              ease: "easeOut"
-                            }
-                          }}
-                          viewport={{ once: true }}
-                        />
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* What I Do Section */}
-          <div className="skill-animate">
-            <h3 className="text-3xl font-bold text-zinc-900 dark:text-slate-100 text-center mb-12">
-              What I Do
-            </h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {skills.map((skill, index) => (
-                <motion.div 
-                  key={index} 
-                  className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-                  whileHover={{ 
-                    scale: 1.05,
-                    y: -10,
-                    rotateY: 5,
-                    transition: { type: "spring", stiffness: 400, damping: 25 }
-                  }}
-                  initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    scale: 1,
-                    transition: { 
-                      delay: index * 0.1,
-                      duration: 0.6,
-                      ease: "easeOut"
-                    }
-                  }}
-                  viewport={{ once: true, margin: "-50px" }}
-                >
-                  <motion.div 
-                    className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mb-4 mx-auto"
-                    whileHover={{ 
-                      rotate: [0, -10, 10, 0],
-                      scale: 1.1,
-                      transition: { duration: 0.5 }
-                    }}
-                  >
-                    <skill.icon className="w-8 h-8 text-white" />
-                  </motion.div>
-                  <h4 className="text-xl font-semibold text-zinc-900 dark:text-slate-100 mb-3 text-center">
-                    {skill.name}
-                  </h4>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm text-center leading-relaxed">
-                    {skill.description}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Additional Skills Tags */}
-          <motion.div 
-            className="mt-16 text-center skill-animate"
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { duration: 0.8, ease: "easeOut" }
-            }}
-            viewport={{ once: true }}
-          >
-            <h3 className="text-2xl font-bold text-zinc-900 dark:text-slate-100 mb-8">
-              Technologies I Work With
-            </h3>
-            <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto">
-              {[
-                'React.js', 'Node.js', 'JavaScript', 'TypeScript', 'MongoDB', 'Express.js',
-                'HTML5', 'CSS3', 'Tailwind CSS', 'Git', 'GitHub', 'VS Code', 
-                'Firebase', 'Vercel', 'Netlify', 'Figma', 'REST APIs', 
-                'Context API', 'Responsive Design', 'SEO'
-              ].map((tech, index) => (
-                <motion.span 
-                  key={index}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900 dark:to-pink-900 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium hover:from-purple-200 hover:to-pink-200 dark:hover:from-purple-800 dark:hover:to-pink-800 transition-all duration-300 cursor-default"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    scale: 1,
-                    transition: { 
-                      delay: index * 0.05,
-                      duration: 0.4,
-                      ease: "easeOut"
-                    }
-                  }}
-                  whileHover={{ 
-                    scale: 1.1,
-                    y: -2,
-                    transition: { type: "spring", stiffness: 400, damping: 25 }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  {tech}
-                </motion.span>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <SkillsSection 
+        skillsRef={skillsRef}
+        techSkillsRef={techSkillsRef}
+        technicalSkills={technicalSkills}
+        skills={skills}
+      />
 
       {/* Projects Section */}
-      <section id="projects" className="py-20 px-4 bg-slate-50 dark:bg-slate-800 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          {/* Section Header */}
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 60 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                duration: 0.8,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            <motion.h2 
-              className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-slate-100 mb-4"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ 
-                opacity: 1, 
-                scale: 1,
-                transition: { 
-                  duration: 0.6,
-                  ease: "backOut",
-                  delay: 0.2
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              My Projects
-            </motion.h2>
-            <motion.div 
-              className="w-20 h-1 bg-purple-600 dark:bg-purple-400 mx-auto mb-6"
-              initial={{ width: 0 }}
-              whileInView={{ 
-                width: 80,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut",
-                  delay: 0.4
-                }
-              }}
-              viewport={{ once: true }}
-            />
-            <motion.p 
-              className="text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.6,
-                  delay: 0.6
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              Here are some of my recent projects that showcase my skills in full-stack development.
-            </motion.p>
-          </motion.div>
-
-          {/* Featured Projects */}
-          <motion.div 
-            className="mb-16"
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                duration: 0.8,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true, margin: "-50px" }}
-          >
-            <motion.h3 
-              className="text-2xl font-bold text-zinc-900 dark:text-slate-100 mb-8 flex items-center gap-2"
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ 
-                opacity: 1, 
-                x: 0,
-                transition: { 
-                  duration: 0.6,
-                  delay: 0.2
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              <motion.div
-                animate={{ 
-                  rotate: [0, 360],
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{ 
-                  duration: 3,
-                  repeat: Infinity,
-                  repeatDelay: 5,
-                  ease: "easeInOut"
-                }}
-              >
-                <Star className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </motion.div>
-              Featured Projects
-            </motion.h3>
-            
-            <div className="grid md:grid-cols-2 gap-8">
-              {projects.filter(project => project.featured).map((project, index) => (
-                <motion.div 
-                  key={project.id} 
-                  className="bg-white dark:bg-slate-700 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 group relative"
-                  initial={{ opacity: 0, y: 60, scale: 0.9 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0, 
-                    scale: 1,
-                    transition: { 
-                      duration: 0.6,
-                      delay: index * 0.2,
-                      type: "spring",
-                      stiffness: 200,
-                      damping: 20
-                    }
-                  }}
-                  whileHover={{ 
-                    scale: 1.02,
-                    y: -10,
-                    rotateY: 2,
-                    transition: { 
-                      type: "spring", 
-                      stiffness: 300, 
-                      damping: 25 
-                    }
-                  }}
-                  viewport={{ once: true, margin: "-50px" }}
-                >
-                  {/* Animated background gradient */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100"
-                    initial={{ scale: 0, rotate: 180 }}
-                    whileHover={{ 
-                      scale: 1, 
-                      rotate: 0,
-                      transition: { duration: 0.5 }
-                    }}
-                  />
-                  
-                  <div className="relative h-48 overflow-hidden">
-                    <motion.img 
-                      src={project.image} 
-                      alt={project.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      whileHover={{ 
-                        scale: 1.1,
-                        transition: { duration: 0.5 }
-                      }}
-                    />
-                    <motion.div 
-                      className="absolute top-4 right-4 bg-purple-600 text-white px-2 py-1 rounded-full text-xs font-medium"
-                      initial={{ opacity: 0, scale: 0 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        scale: 1,
-                        transition: { 
-                          delay: index * 0.2 + 0.5,
-                          type: "spring",
-                          stiffness: 200
-                        }
-                      }}
-                      whileHover={{ 
-                        scale: 1.1,
-                        rotate: [0, 5, -5, 0],
-                        transition: { duration: 0.4 }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.completedDate}
-                    </motion.div>
-                    
-                    {/* Overlay gradient */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    />
-                  </div>
-                  
-                  <div className="p-6 relative z-10">
-                    <motion.h4 
-                      className="text-xl font-bold text-zinc-900 dark:text-slate-100 mb-3"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.2 + 0.3,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.title}
-                    </motion.h4>
-                    
-                    <motion.p 
-                      className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.2 + 0.4,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.description}
-                    </motion.p>
-                    
-                    <motion.div 
-                      className="flex flex-wrap gap-2 mb-4"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.2 + 0.5,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.technologies.map((tech, techIndex) => (
-                        <motion.span 
-                          key={techIndex}
-                          className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors cursor-default"
-                          initial={{ opacity: 0, scale: 0 }}
-                          whileInView={{ 
-                            opacity: 1, 
-                            scale: 1,
-                            transition: { 
-                              delay: index * 0.2 + 0.6 + techIndex * 0.05,
-                              type: "spring",
-                              stiffness: 200
-                            }
-                          }}
-                          whileHover={{ 
-                            scale: 1.1,
-                            y: -2,
-                            transition: { type: "spring", stiffness: 400, damping: 25 }
-                          }}
-                          viewport={{ once: true }}
-                        >
-                          {tech}
-                        </motion.span>
-                      ))}
-                    </motion.div>
-                    
-                    <motion.div 
-                      className="flex gap-4"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.2 + 0.7,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      <motion.div
-                        whileHover={{ 
-                          scale: 1.05,
-                          y: -2,
-                          transition: { type: "spring", stiffness: 400, damping: 25 }
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Button 
-                          size="sm"
-                          className="bg-purple-600 hover:bg-purple-700 text-white relative overflow-hidden group"
-                          onClick={() => window.open(project.liveUrl, '_blank')}
-                        >
-                          <motion.div
-                            className="absolute inset-0 bg-gradient-to-r from-pink-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            initial={{ x: "-100%" }}
-                            whileHover={{ x: "0%" }}
-                            transition={{ duration: 0.3 }}
-                          />
-                          <span className="relative z-10 flex items-center">
-                            <motion.div
-                              whileHover={{ 
-                                x: 3,
-                                transition: { type: "spring", stiffness: 400, damping: 25 }
-                              }}
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                            </motion.div>
-                            Live Demo
-                          </span>
-                        </Button>
-                      </motion.div>
-                      
-                      <motion.div
-                        whileHover={{ 
-                          scale: 1.05,
-                          y: -2,
-                          transition: { type: "spring", stiffness: 400, damping: 25 }
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          className="border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white relative overflow-hidden group"
-                          onClick={() => window.open(project.githubUrl, '_blank')}
-                        >
-                          <motion.div
-                            className="absolute inset-0 bg-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            initial={{ scale: 0 }}
-                            whileHover={{ scale: 1 }}
-                            transition={{ duration: 0.3 }}
-                          />
-                          <span className="relative z-10 flex items-center">
-                            <motion.div
-                              whileHover={{ 
-                                rotate: 360,
-                                transition: { duration: 0.6 }
-                              }}
-                            >
-                              <Github className="w-4 h-4 mr-2" />
-                            </motion.div>
-                            Frontend
-                          </span>
-                        </Button>
-                      </motion.div>
-
-                      {project.backendUrl && (
-                        <motion.div
-                          whileHover={{ 
-                            scale: 1.05,
-                            y: -2,
-                            transition: { type: "spring", stiffness: 400, damping: 25 }
-                          }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            className="border-slate-600 text-slate-600 hover:bg-slate-600 hover:text-white dark:border-slate-400 dark:text-slate-400 dark:hover:bg-slate-400 dark:hover:text-black relative overflow-hidden group"
-                            onClick={() => window.open(project.backendUrl, '_blank')}
-                          >
-                            <motion.div
-                              className="absolute inset-0 bg-slate-600 dark:bg-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                              initial={{ scale: 0 }}
-                              whileHover={{ scale: 1 }}
-                              transition={{ duration: 0.3 }}
-                            />
-                            <span className="relative z-10 flex items-center">
-                              <motion.div
-                                whileHover={{ 
-                                  rotate: 360,
-                                  transition: { duration: 0.6 }
-                                }}
-                              >
-                                <Server className="w-4 h-4 mr-2" />
-                              </motion.div>
-                              Backend
-                            </span>
-                          </Button>
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  </div>
-                  
-                  {/* Floating particles */}
-                  <motion.div
-                    className="absolute top-4 left-4 w-2 h-2 bg-purple-400/60 rounded-full opacity-0 group-hover:opacity-100"
-                    animate={{
-                      y: [0, -15, 0],
-                      opacity: [0.3, 0.8, 0.3]
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      delay: index * 0.5
-                    }}
-                  />
-                  <motion.div
-                    className="absolute bottom-6 right-6 w-1 h-1 bg-pink-400/60 rounded-full opacity-0 group-hover:opacity-100"
-                    animate={{
-                      y: [0, -10, 0],
-                      x: [0, 5, 0],
-                      opacity: [0.3, 0.8, 0.3]
-                    }}
-                    transition={{
-                      duration: 2.5,
-                      repeat: Infinity,
-                      delay: index * 0.3
-                    }}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* All Projects Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                duration: 0.8,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true, margin: "-50px" }}
-          >
-            <motion.h3 
-              className="text-2xl font-bold text-zinc-900 dark:text-slate-100 mb-8"
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ 
-                opacity: 1, 
-                x: 0,
-                transition: { 
-                  duration: 0.6,
-                  delay: 0.2
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              All Projects
-            </motion.h3>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map((project, index) => (
-                <motion.div 
-                  key={project.id} 
-                  className="bg-white dark:bg-slate-700 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 group relative"
-                  initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0, 
-                    scale: 1,
-                    transition: { 
-                      duration: 0.5,
-                      delay: index * 0.1,
-                      type: "spring",
-                      stiffness: 200,
-                      damping: 20
-                    }
-                  }}
-                  whileHover={{ 
-                    scale: 1.03,
-                    y: -8,
-                    rotateY: 3,
-                    transition: { 
-                      type: "spring", 
-                      stiffness: 400, 
-                      damping: 25 
-                    }
-                  }}
-                  viewport={{ once: true, margin: "-50px" }}
-                >
-                  {/* Animated background */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100"
-                    initial={{ scale: 0 }}
-                    whileHover={{ 
-                      scale: 1,
-                      transition: { duration: 0.4 }
-                    }}
-                  />
-                  
-                  <div className="relative h-40 overflow-hidden">
-                    <motion.img 
-                      src={project.image} 
-                      alt={project.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
-                    {project.featured && (
-                      <motion.div 
-                        className="absolute top-2 left-2 bg-purple-600 text-white p-1 rounded"
-                        initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                        whileInView={{ 
-                          opacity: 1, 
-                          scale: 1, 
-                          rotate: 0,
-                          transition: { 
-                            delay: index * 0.1 + 0.3,
-                            type: "spring",
-                            stiffness: 200
-                          }
-                        }}
-                        whileHover={{ 
-                          rotate: 360,
-                          scale: 1.2,
-                          transition: { duration: 0.6 }
-                        }}
-                        viewport={{ once: true }}
-                      >
-                        <Star className="w-4 h-4" />
-                      </motion.div>
-                    )}
-                  </div>
-                  
-                  <div className="p-4 relative z-10">
-                    <motion.h4 
-                      className="text-lg font-bold text-zinc-900 dark:text-slate-100 mb-2"
-                      initial={{ opacity: 0, y: 15 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.1 + 0.2,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.title}
-                    </motion.h4>
-                    
-                    <motion.p 
-                      className="text-slate-600 dark:text-slate-400 text-sm mb-3 line-clamp-2"
-                      initial={{ opacity: 0, y: 15 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.1 + 0.3,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.description}
-                    </motion.p>
-                    
-                    <motion.div 
-                      className="flex flex-wrap gap-1 mb-3"
-                      initial={{ opacity: 0, y: 15 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.1 + 0.4,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {project.technologies.slice(0, 3).map((tech, techIndex) => (
-                        <motion.span 
-                          key={techIndex}
-                          className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded text-xs hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors cursor-default"
-                          initial={{ opacity: 0, scale: 0 }}
-                          whileInView={{ 
-                            opacity: 1, 
-                            scale: 1,
-                            transition: { 
-                              delay: index * 0.1 + 0.5 + techIndex * 0.05,
-                              type: "spring",
-                              stiffness: 200
-                            }
-                          }}
-                          whileHover={{ 
-                            scale: 1.1,
-                            y: -1,
-                            transition: { type: "spring", stiffness: 400, damping: 25 }
-                          }}
-                          viewport={{ once: true }}
-                        >
-                          {tech}
-                        </motion.span>
-                      ))}
-                      {project.technologies.length > 3 && (
-                        <motion.span 
-                          className="px-2 py-1 bg-zinc-200 dark:bg-slate-600 text-slate-600 dark:text-slate-400 rounded text-xs"
-                          initial={{ opacity: 0, scale: 0 }}
-                          whileInView={{ 
-                            opacity: 1, 
-                            scale: 1,
-                            transition: { 
-                              delay: index * 0.1 + 0.65,
-                              type: "spring",
-                              stiffness: 200
-                            }
-                          }}
-                          whileHover={{ 
-                            scale: 1.1,
-                            transition: { type: "spring", stiffness: 400, damping: 25 }
-                          }}
-                          viewport={{ once: true }}
-                        >
-                          +{project.technologies.length - 3}
-                        </motion.span>
-                      )}
-                    </motion.div>
-                    
-                    <motion.div 
-                      className="flex gap-2"
-                      initial={{ opacity: 0, y: 15 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        y: 0,
-                        transition: { 
-                          delay: index * 0.1 + 0.6,
-                          duration: 0.4
-                        }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      <motion.div
-                        whileHover={{ 
-                          scale: 1.05,
-                          transition: { type: "spring", stiffness: 400, damping: 25 }
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 text-xs relative overflow-hidden group"
-                          onClick={() => window.open(project.liveUrl, '_blank')}
-                        >
-                          <motion.div
-                            className="absolute inset-0 bg-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            initial={{ x: "-100%" }}
-                            whileHover={{ x: "0%" }}
-                            transition={{ duration: 0.3 }}
-                          />
-                          <span className="relative z-10 flex items-center justify-center">
-                            <ExternalLink className="w-3 h-3 mr-1" />
-                            Demo
-                          </span>
-                        </Button>
-                      </motion.div>
-                      
-                      <motion.div
-                        whileHover={{ 
-                          scale: 1.05,
-                          transition: { type: "spring", stiffness: 400, damping: 25 }
-                        }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 text-xs relative overflow-hidden group"
-                          onClick={() => window.open(project.githubUrl, '_blank')}
-                        >
-                          <motion.div
-                            className="absolute inset-0 bg-slate-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                            initial={{ scale: 0 }}
-                            whileHover={{ scale: 1 }}
-                            transition={{ duration: 0.3 }}
-                          />
-                          <span className="relative z-10 flex items-center justify-center">
-                            <Github className="w-3 h-3 mr-1" />
-                            Code
-                          </span>
-                        </Button>
-                      </motion.div>
-                    </motion.div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <ProjectsSection 
+        projects={projects}
+        setSelectedProject={setSelectedProject}
+        setShowProjectModal={setShowProjectModal}
+      />
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 px-4 bg-white dark:bg-slate-900 overflow-hidden">
-        <div className="max-w-6xl mx-auto">
-          {/* Section Header */}
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 60 }}
-            whileInView={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                duration: 0.8,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            <motion.h2 
-              className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-slate-100 mb-4"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ 
-                opacity: 1, 
-                scale: 1,
-                transition: { 
-                  duration: 0.6,
-                  ease: "backOut",
-                  delay: 0.2
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              Get In Touch
-            </motion.h2>
-            <motion.div 
-              className="w-20 h-1 bg-purple-600 dark:bg-purple-400 mx-auto mb-6"
-              initial={{ width: 0 }}
-              whileInView={{ 
-                width: 80,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut",
-                  delay: 0.4
-                }
-              }}
-              viewport={{ once: true }}
-            />
-            <motion.p 
-              className="text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.6,
-                  delay: 0.6
-                }
-              }}
-              viewport={{ once: true }}
-            >
-              I'm always open to discussing new opportunities, interesting projects, or just having a chat about technology.
-            </motion.p>
-          </motion.div>
+      <ContactSection 
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+        submitStatus={submitStatus}
+        contactInfo={contactInfo}
+      />
 
-          <div className="grid md:grid-cols-2 gap-12">
-            {/* Contact Information */}
-            <motion.div 
-              className="space-y-8"
-              initial={{ opacity: 0, x: -60 }}
-              whileInView={{ 
-                opacity: 1, 
-                x: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut"
-                }
-              }}
-              viewport={{ once: true, margin: "-50px" }}
-            >
-              <div>
-                <motion.h3 
-                  className="text-2xl font-bold text-zinc-900 dark:text-slate-100 mb-6"
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { 
-                      duration: 0.6,
-                      delay: 0.2
-                    }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  Let's Connect
-                </motion.h3>
-                <motion.p 
-                  className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { 
-                      duration: 0.6,
-                      delay: 0.3
-                    }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  Whether you have a project in mind, want to collaborate, or just want to say hello, 
-                  I'd love to hear from you. Feel free to reach out through any of the channels below.
-                </motion.p>
-              </div>
+      {/* Footer Section */}
+      <FooterSection 
+        socialLinks={socialLinks}
+        quickLinks={quickLinks}
+        scrollToSection={scrollToSection}
+        scrollToTop={scrollToTop}
+        techStack={techStack}
+      />
 
-              <div className="space-y-4">
-                {contactInfo.map((info, index) => (
-                  <motion.a
-                    key={index}
-                    href={info.link}
-                    target={info.link.startsWith('http') ? '_blank' : undefined}
-                    rel={info.link.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="flex items-center gap-4 p-4 bg-white dark:bg-slate-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 group cursor-pointer relative overflow-hidden"
-                    initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                    whileInView={{ 
-                      opacity: 1, 
-                      y: 0,
-                      scale: 1,
-                      transition: { 
-                        duration: 0.5,
-                        delay: index * 0.1 + 0.4,
-                        type: "spring",
-                        stiffness: 200
-                      }
-                    }}
-                    whileHover={{ 
-                      scale: 1.02,
-                      y: -5,
-                      transition: { 
-                        type: "spring", 
-                        stiffness: 400, 
-                        damping: 25 
-                      }
-                    }}
-                    whileTap={{ 
-                      scale: 0.98,
-                      transition: { duration: 0.1 }
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    {/* Animated background */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100"
-                      initial={{ scale: 0, rotate: 180 }}
-                      whileHover={{ 
-                        scale: 1, 
-                        rotate: 0,
-                        transition: { duration: 0.4 }
-                      }}
-                    />
-                    
-                    <motion.div 
-                      className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors relative z-10"
-                      whileHover={{ 
-                        rotate: [0, -10, 10, 0],
-                        scale: 1.1,
-                        transition: { duration: 0.5 }
-                      }}
-                    >
-                      <info.icon className="w-6 h-6 text-purple-600 dark:text-purple-400 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors" />
-                    </motion.div>
-                    
-                    <div className="relative z-10">
-                      <motion.div 
-                        className="font-medium text-zinc-900 dark:text-slate-100"
-                        initial={{ opacity: 0, x: -10 }}
-                        whileInView={{ 
-                          opacity: 1, 
-                          x: 0,
-                          transition: { 
-                            delay: index * 0.1 + 0.5,
-                            duration: 0.4
-                          }
-                        }}
-                        viewport={{ once: true }}
-                      >
-                        {info.label}
-                      </motion.div>
-                      <motion.div 
-                        className="text-slate-600 dark:text-slate-400 text-sm"
-                        initial={{ opacity: 0, x: -10 }}
-                        whileInView={{ 
-                          opacity: 1, 
-                          x: 0,
-                          transition: { 
-                            delay: index * 0.1 + 0.6,
-                            duration: 0.4
-                          }
-                        }}
-                        viewport={{ once: true }}
-                      >
-                        {info.value}
-                      </motion.div>
-                    </div>
-                    
-                    {/* Floating particles */}
-                    <motion.div
-                      className="absolute top-2 right-2 w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100"
-                      animate={{
-                        y: [0, -8, 0],
-                        opacity: [0.3, 0.8, 0.3]
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        delay: index * 0.2
-                      }}
-                    />
-                  </motion.a>
-                ))}
-              </div>
-
-              <motion.div 
-                className="bg-white dark:bg-slate-700 p-6 rounded-xl shadow-sm relative overflow-hidden group"
-                initial={{ opacity: 0, y: 40, scale: 0.9 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  scale: 1,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.8,
-                    type: "spring",
-                    stiffness: 200
-                  }
-                }}
-                whileHover={{ 
-                  scale: 1.02,
-                  y: -3,
-                  transition: { 
-                    type: "spring", 
-                    stiffness: 400, 
-                    damping: 25 
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                {/* Animated background */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100"
-                  initial={{ scale: 0 }}
-                  whileHover={{ 
-                    scale: 1,
-                    transition: { duration: 0.4 }
-                  }}
-                />
-                
-                <motion.h4 
-                  className="font-bold text-zinc-900 dark:text-slate-100 mb-3 flex items-center gap-2 relative z-10"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    x: 0,
-                    transition: { 
-                      delay: 0.9,
-                      duration: 0.4
-                    }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <motion.div
-                    whileHover={{ 
-                      rotate: 360,
-                      scale: 1.2,
-                      transition: { duration: 0.6 }
-                    }}
-                  >
-                    <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  </motion.div>
-                  Availability
-                </motion.h4>
-                <motion.p 
-                  className="text-slate-600 dark:text-slate-400 text-sm relative z-10"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    x: 0,
-                    transition: { 
-                      delay: 1,
-                      duration: 0.4
-                    }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  I'm currently available for freelance projects and full-time opportunities. 
-                  I typically respond to messages within 24 hours.
-                </motion.p>
-              </motion.div>
-            </motion.div>
-
-            {/* Contact Form */}
-            <motion.div 
-              className="bg-white dark:bg-slate-700 p-8 rounded-xl shadow-lg relative overflow-hidden"
-              initial={{ opacity: 0, x: 60 }}
-              whileInView={{ 
-                opacity: 1, 
-                x: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut"
-                }
-              }}
-              viewport={{ once: true, margin: "-50px" }}
-            >
-              {/* Animated background gradient */}
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-indigo-500/5"
-                animate={{
-                  backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"]
-                }}
-                transition={{
-                  duration: 10,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-                style={{ backgroundSize: "200% 200%" }}
-              />
-              
-              <motion.h3 
-                className="text-2xl font-bold text-zinc-900 dark:text-slate-100 mb-6 relative z-10"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.2
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                Send a Message
-              </motion.h3>
-              
-              <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-                {/* Status Messages */}
-                {submitStatus === 'success' && (
-                  <motion.div 
-                    className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400"
-                    initial={{ opacity: 0, scale: 0.8, y: -20 }}
-                    animate={{ 
-                      opacity: 1, 
-                      scale: 1, 
-                      y: 0,
-                      transition: { 
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 20
-                      }
-                    }}
-                    exit={{ 
-                      opacity: 0, 
-                      scale: 0.8, 
-                      y: -20,
-                      transition: { duration: 0.3 }
-                    }}
-                  >
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 0.6 }}
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </motion.div>
-                    <span className="text-sm font-medium">Message sent successfully! I'll get back to you soon.</span>
-                  </motion.div>
-                )}
-                
-                {submitStatus === 'error' && (
-                  <motion.div 
-                    className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400"
-                    initial={{ opacity: 0, scale: 0.8, y: -20 }}
-                    animate={{ 
-                      opacity: 1, 
-                      scale: 1, 
-                      y: 0,
-                      transition: { 
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 20
-                      }
-                    }}
-                    exit={{ 
-                      opacity: 0, 
-                      scale: 0.8, 
-                      y: -20,
-                      transition: { duration: 0.3 }
-                    }}
-                  >
-                    <motion.div
-                      animate={{ 
-                        rotate: [0, 10, -10, 0],
-                        scale: [1, 1.1, 1]
-                      }}
-                      transition={{ duration: 0.6 }}
-                    >
-                      <AlertCircle className="w-5 h-5" />
-                    </motion.div>
-                    <span className="text-sm font-medium">Failed to send message. Please try again or contact me directly.</span>
-                  </motion.div>
-                )}
-
-                <motion.div 
-                  className="grid md:grid-cols-2 gap-4"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { 
-                      duration: 0.5,
-                      delay: 0.3
-                    }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <motion.div
-                    whileFocus={{ scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  >
-                    <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                      Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isSubmitting}
-                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-600 text-zinc-900 dark:text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500"
-                      placeholder="Your name"
-                    />
-                  </motion.div>
-                  <motion.div
-                    whileFocus={{ scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  >
-                    <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isSubmitting}
-                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-600 text-zinc-900 dark:text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500"
-                      placeholder="your.email@example.com"
-                    />
-                  </motion.div>
-                </motion.div>
-                
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { 
-                      duration: 0.5,
-                      delay: 0.4
-                    }
-                  }}
-                  viewport={{ once: true }}
-                  whileFocus={{ scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                >
-                  <label htmlFor="subject" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Subject *
-                  </label>
-                  <input
-                    type="text"
-                    id="subject"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    required
-                    disabled={isSubmitting}
-                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-600 text-zinc-900 dark:text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500"
-                    placeholder="What's this about?"
-                  />
-                </motion.div>
-                
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { 
-                      duration: 0.5,
-                      delay: 0.5
-                    }
-                  }}
-                  viewport={{ once: true }}
-                  whileFocus={{ scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                >
-                  <label htmlFor="message" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                    Message *
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    required
-                    rows={5}
-                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-600 text-zinc-900 dark:text-slate-100 resize-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500"
-                    placeholder="Tell me about your project or just say hello!"
-                  />
-                </motion.div>
-                
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { 
-                      duration: 0.5,
-                      delay: 0.6
-                    }
-                  }}
-                  viewport={{ once: true }}
-                  whileHover={{ 
-                    scale: 1.02,
-                    y: -2,
-                    transition: { type: "spring", stiffness: 400, damping: 25 }
-                  }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-medium py-3 px-6 shadow-lg shadow-purple-600/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:transform-none disabled:shadow-none relative overflow-hidden group"
-                  >
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-pink-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                      initial={{ x: "-100%" }}
-                      whileHover={{ x: "0%" }}
-                      transition={{ duration: 0.3 }}
-                    />
-                    <span className="relative z-10 flex items-center justify-center">
-                      {isSubmitting ? (
-                        <>
-                          <motion.div 
-                            className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full"
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <motion.div
-                            whileHover={{ 
-                              x: 5,
-                              transition: { type: "spring", stiffness: 400, damping: 25 }
-                            }}
-                          >
-                            <Send className="w-5 h-5 mr-2" />
-                          </motion.div>
-                          Send Message
-                        </>
-                      )}
-                    </span>
-                  </Button>
-                </motion.div>
-              </form>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Animated Footer */}
-      <footer className="relative bg-slate-900 dark:bg-black text-white overflow-hidden">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Floating Geometric Shapes */}
-          <motion.div
-            className="absolute top-1/4 left-1/6 w-16 h-16 border border-purple-500/20 rounded-full"
-            animate={{
-              y: [0, -20, 0],
-              rotate: [0, 180, 360],
-              opacity: [0.3, 0.6, 0.3]
-            }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute top-3/4 right-1/4 w-12 h-12 bg-gradient-to-br from-pink-500/20 to-purple-600/20 rounded-lg"
-            animate={{
-              y: [0, 15, 0],
-              rotate: [0, -180, -360],
-              x: [0, 10, 0]
-            }}
-            transition={{
-              duration: 10,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 1
-            }}
-          />
-          
-          {/* Floating Particles */}
-          {[...Array(8)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-purple-400/40 rounded-full"
-              style={{
-                left: `${10 + i * 12}%`,
-                top: `${20 + i * 8}%`
-              }}
-              animate={{
-                y: [0, -25, 0],
-                opacity: [0.2, 0.8, 0.2],
-                scale: [0.5, 1, 0.5]
-              }}
-              transition={{
-                duration: 4 + i * 0.5,
-                repeat: Infinity,
-                delay: i * 0.3,
-                ease: "easeInOut"
-              }}
-            />
-          ))}
-        </div>
-
-        <div className="relative z-10 max-w-6xl mx-auto px-4 py-16">
-          {/* Main Footer Content */}
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
-            {/* Brand Section */}
-            <motion.div 
-              className="md:col-span-2"
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut"
-                }
-              }}
-              viewport={{ once: true, margin: "-100px" }}
-            >
-              <motion.h3 
-                className="text-2xl font-bold mb-4 bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent"
-                animate={{
-                  backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-                style={{ backgroundSize: "200% 200%" }}
-              >
-                Fariha Habib
-              </motion.h3>
-              <motion.p 
-                className="text-slate-300 mb-6 leading-relaxed max-w-md"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.2
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                MERN Stack Developer passionate about creating innovative web solutions and bringing ideas to life through code.
-              </motion.p>
-              
-              {/* Social Links */}
-              <motion.div 
-                className="flex gap-4"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.4
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                {socialLinks.map((social, index) => (
-                  <motion.a
-                    key={index}
-                    href={social.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`w-10 h-10 bg-slate-800 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 transition-all duration-300 ${social.color} hover:bg-slate-700 dark:hover:bg-slate-600 group relative overflow-hidden`}
-                    initial={{ opacity: 0, scale: 0 }}
-                    whileInView={{ 
-                      opacity: 1, 
-                      scale: 1,
-                      transition: { 
-                        delay: index * 0.1 + 0.5,
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 20
-                      }
-                    }}
-                    whileHover={{ 
-                      scale: 1.1,
-                      y: -3,
-                      transition: { 
-                        type: "spring", 
-                        stiffness: 400, 
-                        damping: 25 
-                      }
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    viewport={{ once: true }}
-                  >
-                    {/* Animated background */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-indigo-500/20 rounded-full opacity-0 group-hover:opacity-100"
-                      initial={{ scale: 0, rotate: 180 }}
-                      whileHover={{ 
-                        scale: 1, 
-                        rotate: 0,
-                        transition: { duration: 0.3 }
-                      }}
-                    />
-                    
-                    <motion.div
-                      whileHover={{ 
-                        rotate: 360,
-                        transition: { duration: 0.6 }
-                      }}
-                      className="relative z-10"
-                    >
-                      <social.icon className="w-5 h-5" />
-                    </motion.div>
-                    
-                    {/* Tooltip */}
-                    <motion.div
-                      className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-slate-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                      initial={{ y: 10, opacity: 0 }}
-                      whileHover={{ y: 0, opacity: 1 }}
-                    >
-                      {social.label}
-                    </motion.div>
-                  </motion.a>
-                ))}
-              </motion.div>
-            </motion.div>
-
-            {/* Quick Links */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut",
-                  delay: 0.2
-                }
-              }}
-              viewport={{ once: true, margin: "-100px" }}
-            >
-              <motion.h4 
-                className="text-lg font-semibold mb-4 text-slate-200"
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  x: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.3
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                Quick Links
-              </motion.h4>
-              <ul className="space-y-2">
-                {quickLinks.map((link, index) => (
-                  <motion.li 
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ 
-                      opacity: 1, 
-                      x: 0,
-                      transition: { 
-                        duration: 0.4,
-                        delay: index * 0.1 + 0.4
-                      }
-                    }}
-                    viewport={{ once: true }}
-                  >
-                    <motion.button
-                      onClick={() => scrollToSection(link.href.substring(1))}
-                      className="text-slate-400 hover:text-purple-400 transition-colors duration-300 text-sm group flex items-center gap-2"
-                      whileHover={{ 
-                        x: 5,
-                        transition: { type: "spring", stiffness: 400, damping: 25 }
-                      }}
-                    >
-                      <motion.div
-                        className="w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                        whileHover={{ scale: 1.5 }}
-                      />
-                      {link.label}
-                    </motion.button>
-                  </motion.li>
-                ))}
-              </ul>
-            </motion.div>
-
-            {/* Contact Info */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ 
-                opacity: 1, 
-                y: 0,
-                transition: { 
-                  duration: 0.8,
-                  ease: "easeOut",
-                  delay: 0.4
-                }
-              }}
-              viewport={{ once: true, margin: "-100px" }}
-            >
-              <motion.h4 
-                className="text-lg font-semibold mb-4 text-slate-200"
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  x: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.5
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                Get In Touch
-              </motion.h4>
-              <div className="space-y-3">
-                <motion.a
-                  href="mailto:farihahabib2202@gmail.com"
-                  className="flex items-center gap-3 text-slate-400 hover:text-purple-400 transition-colors duration-300 text-sm group"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    x: 0,
-                    transition: { 
-                      duration: 0.4,
-                      delay: 0.6
-                    }
-                  }}
-                  whileHover={{ 
-                    x: 5,
-                    transition: { type: "spring", stiffness: 400, damping: 25 }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <motion.div
-                    whileHover={{ 
-                      rotate: 360,
-                      scale: 1.2,
-                      transition: { duration: 0.6 }
-                    }}
-                  >
-                    <Mail className="w-4 h-4" />
-                  </motion.div>
-                  farihahabib2202@gmail.com
-                </motion.a>
-                
-                <motion.div
-                  className="flex items-center gap-3 text-slate-400 text-sm"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ 
-                    opacity: 1, 
-                    x: 0,
-                    transition: { 
-                      duration: 0.4,
-                      delay: 0.7
-                    }
-                  }}
-                  viewport={{ once: true }}
-                >
-                  <motion.div
-                    animate={{ 
-                      rotate: [0, 10, -10, 0],
-                      transition: { 
-                        duration: 4,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }
-                    }}
-                  >
-                    <MapPin className="w-4 h-4" />
-                  </motion.div>
-                  Dhaka, Bangladesh
-                </motion.div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Divider */}
-          <motion.div 
-            className="border-t border-slate-700 dark:border-slate-600 pt-8"
-            initial={{ opacity: 0, scaleX: 0 }}
-            whileInView={{ 
-              opacity: 1, 
-              scaleX: 1,
-              transition: { 
-                duration: 1,
-                ease: "easeOut"
-              }
-            }}
-            viewport={{ once: true }}
-          >
-            {/* Bottom Section */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              {/* Copyright */}
-              <motion.p 
-                className="text-slate-400 text-sm"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.2
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                © {new Date().getFullYear()} Fariha Habib. All rights reserved.
-              </motion.p>
-
-              {/* Tech Stack */}
-              <motion.div 
-                className="flex items-center gap-4 text-slate-400 text-sm"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  y: 0,
-                  transition: { 
-                    duration: 0.6,
-                    delay: 0.4
-                  }
-                }}
-                viewport={{ once: true }}
-              >
-                <span>Built with</span>
-                <div className="flex items-center gap-2">
-                  {techStack.slice(0, 4).map((tech, index) => (
-                    <motion.span 
-                      key={tech}
-                      className="hover:text-purple-400 transition-colors cursor-default"
-                      initial={{ opacity: 0, scale: 0 }}
-                      whileInView={{ 
-                        opacity: 1, 
-                        scale: 1,
-                        transition: { 
-                          delay: index * 0.1 + 0.5,
-                          type: "spring",
-                          stiffness: 200
-                        }
-                      }}
-                      whileHover={{ 
-                        scale: 1.1,
-                        y: -2,
-                        transition: { type: "spring", stiffness: 400, damping: 25 }
-                      }}
-                      viewport={{ once: true }}
-                    >
-                      {tech}
-                    </motion.span>
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Scroll to Top */}
-              <motion.button
-                onClick={scrollToTop}
-                className="w-10 h-10 bg-slate-800 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-purple-600 transition-all duration-300 group relative overflow-hidden"
-                initial={{ opacity: 0, scale: 0 }}
-                whileInView={{ 
-                  opacity: 1, 
-                  scale: 1,
-                  transition: { 
-                    delay: 0.6,
-                    type: "spring",
-                    stiffness: 200,
-                    damping: 20
-                  }
-                }}
-                whileHover={{ 
-                  scale: 1.1,
-                  y: -3,
-                  transition: { 
-                    type: "spring", 
-                    stiffness: 400, 
-                    damping: 25 
-                  }
-                }}
-                whileTap={{ scale: 0.95 }}
-                viewport={{ once: true }}
-              >
-                {/* Animated background */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full opacity-0 group-hover:opacity-100"
-                  initial={{ scale: 0 }}
-                  whileHover={{ 
-                    scale: 1,
-                    transition: { duration: 0.3 }
-                  }}
-                />
-                
-                <motion.div
-                  animate={{ 
-                    y: [0, -3, 0],
-                    transition: { 
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }
-                  }}
-                  className="relative z-10"
-                >
-                  <ArrowUp className="w-5 h-5" />
-                </motion.div>
-              </motion.button>
-            </div>
-          </motion.div>
-        </div>
-      </footer>
+      {/* Project Details Modal */}
+      {showProjectModal && selectedProject && (
+        <ProjectModal 
+          selectedProject={selectedProject}
+          setShowProjectModal={setShowProjectModal}
+        />
+      )}
     </div>
   )
 }

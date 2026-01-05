@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion'
 import { gsap } from 'gsap'
 import { Button } from '@/components/ui/button'
-import { Moon, Sun, Menu, X, Home, User, Briefcase, Mail, Code } from 'lucide-react'
+import { Moon, Sun, Menu, X, Home, User, Briefcase, Mail, Code, GraduationCap } from 'lucide-react'
 
 interface NavbarProps {
   isDark: boolean
@@ -32,6 +32,7 @@ const Navbar = ({ isDark, toggleTheme, scrollToSection }: NavbarProps) => {
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'about', label: 'About', icon: User },
+    { id: 'education', label: 'Education', icon: GraduationCap },
     { id: 'skills', label: 'Skills', icon: Code },
     { id: 'projects', label: 'Projects', icon: Briefcase },
     { id: 'contact', label: 'Contact', icon: Mail },
